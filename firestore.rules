@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'cebrian.andres@iesutrillas.es' ||
+        request.auth.token.email == 'capivaraestudio@gmail.com' ||
+        (request.auth.token.email != null && exists(/databases/$(database)/documents/admins/$(request.auth.token.email)))
+      );
+    }
+
+    match /teachers/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    function isIesutrillasMember() {
+      return isSignedIn() && request.auth.token.email != null && request.auth.token.email.matches('.*@iesutrillas[.]es');
+    }
+
+    match /guardias/{document=**} {
+      allow read: if true;
+      allow create, update: if isIesutrillasMember() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /mail/{document=**} {
+      allow create: if isIesutrillasMember() || isAdmin();
+    }
+
+    match /config/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /admins/{document=**} {
+      // Only admins can see and modify the admins list
+      allow read, write: if isAdmin();
+    }
+  }
+}

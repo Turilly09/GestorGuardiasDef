@@ -1,0 +1,39 @@
+{
+  "schemas": {
+    "users": {
+      "type": "document",
+      "fields": {
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "availability": {
+          "type": "array",
+          "items": { "type": "map" }
+        }
+      }
+    },
+    "guardias": {
+      "type": "document",
+      "fields": {
+        "creatorId": { "type": "string" },
+        "substituteId": { "type": "string", "optional": true },
+        "date": { "type": "timestamp" },
+        "period": { "type": "integer" },
+        "group": { "type": "string" },
+        "subject": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+    "notifications": {
+      "type": "document",
+      "fields": {
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "timestamp" }
+      }
+    }
+  }
+}
