@@ -146,11 +146,7 @@ export function GuardiasBoard() {
       if (availableTeachers.length > 0) {
         const teachersWithStats = availableTeachers.map(t => {
            // Use only the filtered guardias so it matches the Selected View Filter (Current, Today, Week)
-           const count = guardias.filter(g => {
-             const gDay = parseISO(g.dateStr).getDay();
-             const adjustedDay = gDay === 0 ? 7 : gDay;
-             return g.status === 'assigned' && g.substituteTeacherId === t.id && Number(g.period) === Number(p) && adjustedDay === d;
-           }).length;
+           const count = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === t.id).length;
            return { ...t, count };
         }).sort((a, b) => a.count - b.count); // Ascending: less guardias first
         
@@ -387,7 +383,7 @@ export function GuardiasBoard() {
                             {group.teachers.map(t => (
                               <div key={t.id} className="flex items-center justify-between group/item">
                                 <span className="text-sm font-medium text-slate-700 truncate mr-2 group-hover/item:text-indigo-600 transition-colors cursor-default" title={t.name}>{t.name}</span>
-                                <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 border border-indigo-100" title={`${t.count} guardias realizadas en este turno y día`}>
+                                <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 border border-indigo-100" title={`${t.count} guardias realizadas en total`}>
                                   {t.count}
                                 </span>
                               </div>
