@@ -146,10 +146,10 @@ export function GuardiasBoard() {
       if (availableTeachers.length > 0) {
         const teachersWithStats = availableTeachers.map(t => {
            // Use only the filtered guardias so it matches the Selected View Filter (Current, Today, Week)
-           const count = filteredGuardias.filter(g => {
+           const count = guardias.filter(g => {
              const gDay = parseISO(g.dateStr).getDay();
              const adjustedDay = gDay === 0 ? 7 : gDay;
-             return g.substituteTeacherId === t.id && Number(g.period) === Number(p) && adjustedDay === d;
+             return g.status === 'assigned' && g.substituteTeacherId === t.id && Number(g.period) === Number(p) && adjustedDay === d;
            }).length;
            return { ...t, count };
         }).sort((a, b) => a.count - b.count); // Ascending: less guardias first
