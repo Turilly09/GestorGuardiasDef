@@ -20,3 +20,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 
+export const db = initializeFirestore(app, {
+  ignoreUndefinedProperties: true
+});
+
+export const auth = getAuth(app);
