@@ -50,9 +50,16 @@ export function AdminPanel() {
         setTeachers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Teacher)));
       });
 
-      const qGuardias = query(collection(db, 'guardias'), orderBy('dateStr', 'desc'), orderBy('period', 'asc'));
+      const qGuardias = query(collection(db, 'guardias'));
       unsubGuardias = onSnapshot(qGuardias, (snap) => {
-        setGuardias(snap.docs.map(d => ({ id: d.id, ...d.data() } as Guardia)));
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Guardia));
+        docs.sort((a, b) => {
+          if (a.dateStr === b.dateStr) return Number(a.period) - Number(b.period);
+          return b.dateStr.localeCompare(a.dateStr);
+        });
+        setGuardias(docs);
+      }, (error) => {
+        console.error("Error fetching guardias:", error);
       });
 
       unsubConfig = onSnapshot(doc(db, 'config', 'general'), (snap) => {
