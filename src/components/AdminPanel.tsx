@@ -323,7 +323,7 @@ export function AdminPanel() {
     const allPeriods = Array.from(new Set(guardias.map(g => Number(g.period)))).sort((a: number, b: number) => a - b);
     
     // Only count completed guardias assigned to a real teacher
-    const coveredGuardias = guardias.filter(g => g.status === 'covered' && g.substituteTeacherId && g.substituteTeacherId !== 'aula-libre');
+    const coveredGuardias = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId && g.substituteTeacherId !== 'aula-libre');
     
     teachers.forEach(teacher => {
       const teacherGuardias = coveredGuardias.filter(g => g.substituteTeacherId === teacher.id);
