@@ -6,7 +6,6 @@ import { Button } from './ui/Button';
 import { format, parseISO, isSameWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Users, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
-import emailjs from '@emailjs/browser';
 
 export function GuardiasBoard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -98,21 +97,25 @@ export function GuardiasBoard() {
           const dateStrFormat = format(parseISO(guardia.dateStr), 'dd/MM/yyyy');
           const absentName = teachers.find(t => t.id === guardia.absentTeacherId)?.name || 'Desconocido';
           try {
-            const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-            const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-            const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-            if (serviceId && templateId && publicKey) {
-              await emailjs.send(serviceId, templateId, {
-                to_email: substitute.email,
+            await addDoc(collection(db, 'mail'), {
+              to: substitute.email,
+              message: {
                 subject: `Asignación de Guardia - ${dateStrFormat} (Turno ${guardia.period})`,
-                message: `Hola, ${substitute.name}. Se te ha asignado una guardia para el día ${dateStrFormat} en el turno ${guardia.period}. \n\nGrupo/Clase: ${guardia.group} \nAsignatura: ${guardia.subject || 'N/A'} \nDocente ausente: ${absentName} \n\nTarea indicada: ${guardia.task || 'Sin especificar'}`,
-              }, publicKey);
-            } else {
-              console.warn("EmailJS credentials not configured.");
-            }
+                html: `
+                  <h3>Nueva guardia asignada</h3>
+                  <p>Hola, <strong>${substitute.name}</strong>,</p>
+                  <p>Se te ha asignado una guardia para el d&iacute;a <strong>${dateStrFormat}</strong> en el <strong>turno ${guardia.period}</strong>.</p>
+                  <ul>
+                    <li><strong>Grupo/Clase:</strong> ${guardia.group}</li>
+                    <li><strong>Asignatura:</strong> ${guardia.subject || 'N/A'}</li>
+                    <li><strong>Docente ausente:</strong> ${absentName}</li>
+                  </ul>
+                  <p><strong>Tarea indicada:</strong><br/>${guardia.task?.replace(/\n/g, '<br/>') || 'Sin especificar'}</p>
+                `
+              }
+            });
           } catch (e) {
-             console.error("Error sending email via EmailJS:", e);
+             console.error("Error writing to mail collection:", e);
           }
         }
       }
