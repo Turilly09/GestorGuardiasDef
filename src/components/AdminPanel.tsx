@@ -552,7 +552,7 @@ export function AdminPanel() {
                 className="w-full border border-slate-300 rounded-md p-2 h-32 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 value={bulkTeachersInput}
                 onChange={e => setBulkTeachersInput(e.target.value)}
-                placeholder="Ejército de Dumbledore&#10;Minerva McGonagall&#10;Severus Snape..."
+                placeholder="Conan El Cimmerio&#10;Logen NueveDedos&#10;Jagatai Khan"
               />
               <Button onClick={addBulkTeachers} variant="secondary">Importar Lista</Button>
             </div>
