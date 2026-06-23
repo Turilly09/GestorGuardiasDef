@@ -267,12 +267,21 @@ export function GuardiasBoard() {
               const periodNum = parseInt(periodStr);
               const groupGuardias = filteredGuardias.filter(g => g.dateStr === dateStr && Number(g.period) === periodNum);
               
+              const pendingCount = groupGuardias.filter(g => g.status === 'pending').length;
               return (
-                <div key={groupKey} className="space-y-3">
-                  <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    {format(parseISO(dateStr), 'EEEE d MMMM', { locale: es })} • Turno {periodNum}
-                  </h3>
-                  <div className="grid gap-4">
+                <details key={groupKey} className="group bg-white rounded-xl border border-slate-200 shadow-sm space-y-0" open={pendingCount > 0 || viewFilter === 'current' || viewFilter === 'today'}>
+                  <summary className="p-4 bg-slate-50 font-semibold cursor-pointer select-none flex justify-between items-center group-open:border-b border-slate-200 hover:bg-slate-100 transition-colors rounded-xl group-open:rounded-b-none [&::-webkit-details-marker]:hidden list-none">
+                    <div className="flex items-center gap-3">
+                      <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" />
+                      <span className="capitalize text-slate-800 font-bold">
+                        {format(parseISO(dateStr), 'EEEE d MMMM', { locale: es })} • Turno {periodNum}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-medium px-2.5 py-0.5 rounded-full ${pendingCount > 0 ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-700'}`}>
+                       {groupGuardias.length} guardia{groupGuardias.length !== 1 ? 's' : ''} {pendingCount > 0 && `(${pendingCount} pend.)`}
+                    </span>
+                  </summary>
+                  <div className="p-4 grid gap-4 bg-slate-50/50 rounded-b-xl">
                     {groupGuardias.map(g => {
                       const absent = teachers.find(t => t.id === g.absentTeacherId)?.name || 'Desconocido';
                       const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || 'Desconocido');
@@ -347,7 +356,7 @@ export function GuardiasBoard() {
                       );
                     })}
                   </div>
-                </div>
+                </details>
               );
             })}
           </div>
