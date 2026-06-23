@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc } from 'firebase/firestore';
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
 import { Teacher } from '../types';
@@ -15,6 +15,8 @@ export function CreateGuardia() {
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, message: string } | null>(null);
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [configGroups, setConfigGroups] = useState<string[]>([]);
+  const [configSubjects, setConfigSubjects] = useState<string[]>([]);
   const [absentTeacherId, setAbsentTeacherId] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [period, setPeriod] = useState(1);
@@ -46,13 +48,21 @@ export function CreateGuardia() {
     });
 
     let unsubTeachers: () => void = () => {};
+    let unsubConfig: () => void = () => {};
     if (isAuthenticated) {
       unsubTeachers = onSnapshot(collection(db, 'teachers'), (snap) => {
         setTeachers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Teacher)));
       });
+      unsubConfig = onSnapshot(doc(db, 'config', 'general'), (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.groups) setConfigGroups(data.groups);
+          if (data.subjects) setConfigSubjects(data.subjects);
+        }
+      });
     }
 
-    return () => { unsubAuth(); unsubTeachers(); };
+    return () => { unsubAuth(); unsubTeachers(); unsubConfig(); };
   }, [isAuthenticated]);
 
   const handleLogin = async () => {
@@ -221,11 +231,35 @@ export function CreateGuardia() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Grupo / Clase a cubrir</label>
-              <Input placeholder="Ej. 3º ESO B" value={group} onChange={e => setGroup(e.target.value)} required className="py-2.5" />
+              {configGroups.length > 0 ? (
+                <select 
+                  value={group} 
+                  onChange={e => setGroup(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  required
+                >
+                  <option value="">-- Seleccionar Grupo --</option>
+                  {configGroups.map((g, i) => <option key={i} value={g}>{g}</option>)}
+                </select>
+              ) : (
+                <Input placeholder="Ej. 3º ESO B" value={group} onChange={e => setGroup(e.target.value)} required className="py-2.5" />
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Asignatura</label>
-              <Input placeholder="Ej. Matemáticas" value={subject} onChange={e => setSubject(e.target.value)} required className="py-2.5" />
+              {configSubjects.length > 0 ? (
+                <select 
+                  value={subject} 
+                  onChange={e => setSubject(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  required
+                >
+                  <option value="">-- Seleccionar Asignatura --</option>
+                  {configSubjects.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                </select>
+              ) : (
+                <Input placeholder="Ej. Matemáticas" value={subject} onChange={e => setSubject(e.target.value)} required className="py-2.5" />
+              )}
             </div>
           </div>
           

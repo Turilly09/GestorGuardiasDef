@@ -38,6 +38,9 @@ export function AdminPanel() {
   const [admins, setAdmins] = useState<{email: string}[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
 
+  const [groupsInput, setGroupsInput] = useState('');
+  const [subjectsInput, setSubjectsInput] = useState('');
+
   useEffect(() => {
     // Only subscribe to collections if authenticated, else we might get permission errors
     let unsubTeachers: () => void = () => {};
@@ -63,8 +66,11 @@ export function AdminPanel() {
       });
 
       unsubConfig = onSnapshot(doc(db, 'config', 'general'), (snap) => {
-        if (snap.exists() && snap.data().turns) {
-          setTurns(snap.data().turns);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.turns) setTurns(data.turns);
+          if (data.groups) setGroupsInput(data.groups.join(', '));
+          if (data.subjects) setSubjectsInput(data.subjects.join(', '));
         } else {
           setDoc(doc(db, 'config', 'general'), { turns: defaultTurns });
         }
@@ -110,6 +116,17 @@ export function AdminPanel() {
   const saveTurns = async () => {
     await setDoc(doc(db, 'config', 'general'), { turns }, { merge: true });
     alert("Horarios guardados correctamente.");
+  };
+
+  const saveLists = async () => {
+    const groups = groupsInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+    const subjects = subjectsInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+    
+    await setDoc(doc(db, 'config', 'general'), { 
+      groups: Array.from(new Set(groups)).sort(), 
+      subjects: Array.from(new Set(subjects)).sort() 
+    }, { merge: true });
+    alert("Listas guardadas correctamente.");
   };
 
   const addTeacher = async (e: React.FormEvent) => {
@@ -494,6 +511,37 @@ export function AdminPanel() {
           </div>
           {teacherError && <p className="text-sm text-red-500 font-medium">{teacherError}</p>}
         </form>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <Edit2 className="h-5 w-5 text-indigo-600" />
+          Configurar Listas (Grupos y Asignaturas)
+        </h2>
+        <p className="text-sm text-slate-500 mb-4">Pega aquí el listado de grupos y asignaturas para que aparezcan como desplegables en el formulario de nueva guardia. Puedes copiarlas directamente desde Excel o Word (se separarán por comas y saltos de línea automáticamente).</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Grupos</label>
+            <textarea
+              className="w-full border border-slate-300 rounded-md p-2 h-32 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={groupsInput}
+              onChange={e => setGroupsInput(e.target.value)}
+              placeholder="Ej: 1A, 1B, 2A, 2B..."
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Asignaturas</label>
+            <textarea
+              className="w-full border border-slate-300 rounded-md p-2 h-32 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              value={subjectsInput}
+              onChange={e => setSubjectsInput(e.target.value)}
+              placeholder="Ej: Matemáticas, Lengua, Inglés..."
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={saveLists}>Guardar Listas</Button>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">

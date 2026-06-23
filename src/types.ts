@@ -33,4 +33,6 @@ export interface TurnConfig {
 
 export interface AppConfig {
   turns: TurnConfig[];
+  groups?: string[];
+  subjects?: string[];
 }
