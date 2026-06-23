@@ -40,6 +40,7 @@ export function AdminPanel() {
 
   const [groupsInput, setGroupsInput] = useState('');
   const [subjectsInput, setSubjectsInput] = useState('');
+  const [bulkTeachersInput, setBulkTeachersInput] = useState('');
 
   useEffect(() => {
     // Only subscribe to collections if authenticated, else we might get permission errors
@@ -153,6 +154,32 @@ export function AdminPanel() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const addBulkTeachers = async () => {
+    const lines = bulkTeachersInput.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    if (lines.length === 0) return;
+
+    let addedCount = 0;
+    for (const name of lines) {
+      const exists = teachers.some(t => t.name.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        try {
+          await addDoc(collection(db, 'teachers'), {
+            name,
+            email: '',
+            availability: [],
+            active: true
+          });
+          addedCount++;
+        } catch (err) {
+          console.error("Error adding bulk teacher:", err);
+        }
+      }
+    }
+    
+    setBulkTeachersInput('');
+    setAlertDialog({ isOpen: true, message: `Se han importado ${addedCount} docentes correctamente. Los docentes que ya existían se han ignorado para evitar duplicados.` });
   };
 
   const toggleTeacherStatus = async (teacher: Teacher) => {
@@ -487,30 +514,50 @@ export function AdminPanel() {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
           <UserPlus className="h-5 w-5 text-indigo-600" />
-          Añadir Docente
+          Añadir Docentes
         </h2>
-        <form onSubmit={addTeacher} className="flex flex-col gap-2">
-          <div className="flex flex-wrap sm:flex-nowrap gap-3">
-            <Input 
-              value={newTeacherName} 
-              onChange={e => {
-                setNewTeacherName(e.target.value);
-                if (teacherError) setTeacherError('');
-              }} 
-              placeholder="Nombre del docente..."
-              className={`max-w-[200px] sm:max-w-[250px] ${teacherError ? 'border-red-500 focus:ring-red-500/20' : ''}`}
-            />
-            <Input
-              type="email"
-              value={newTeacherEmail || ''}
-              onChange={e => setNewTeacherEmail(e.target.value)}
-              placeholder="Correo (opcional)"
-              className="max-w-[200px] sm:max-w-[250px]"
-            />
-            <Button type="submit">Añadir</Button>
+        
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-medium text-slate-900 mb-2">Añadir Individual</h3>
+            <form onSubmit={addTeacher} className="flex flex-col gap-2">
+              <div className="flex flex-wrap sm:flex-nowrap gap-3">
+                <Input 
+                  value={newTeacherName} 
+                  onChange={e => {
+                    setNewTeacherName(e.target.value);
+                    if (teacherError) setTeacherError('');
+                  }} 
+                  placeholder="Nombre del docente..."
+                  className={`max-w-[200px] sm:max-w-[250px] ${teacherError ? 'border-red-500 focus:ring-red-500/20' : ''}`}
+                />
+                <Input
+                  type="email"
+                  value={newTeacherEmail || ''}
+                  onChange={e => setNewTeacherEmail(e.target.value)}
+                  placeholder="Correo (opcional)"
+                  className="max-w-[200px] sm:max-w-[250px]"
+                />
+                <Button type="submit">Añadir</Button>
+              </div>
+              {teacherError && <p className="text-sm text-red-500 font-medium">{teacherError}</p>}
+            </form>
           </div>
-          {teacherError && <p className="text-sm text-red-500 font-medium">{teacherError}</p>}
-        </form>
+
+          <div className="pt-4 border-t border-slate-100">
+            <h3 className="text-sm font-medium text-slate-900 mb-2">Importación Masiva (Pegar desde Excel)</h3>
+            <p className="text-xs text-slate-500 mb-3">Pega una lista de nombres de profesores (uno por línea). Los correos y horarios se podrán configurar más adelante.</p>
+            <div className="flex flex-col items-end gap-3 max-w-lg">
+              <textarea
+                className="w-full border border-slate-300 rounded-md p-2 h-32 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                value={bulkTeachersInput}
+                onChange={e => setBulkTeachersInput(e.target.value)}
+                placeholder="Ejército de Dumbledore&#10;Minerva McGonagall&#10;Severus Snape..."
+              />
+              <Button onClick={addBulkTeachers} variant="secondary">Importar Lista</Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
