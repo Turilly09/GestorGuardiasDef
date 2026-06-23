@@ -7,6 +7,7 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { format } from 'date-fns';
 import { AlertCircle, CheckCircle2, LogOut } from 'lucide-react';
+import emailjs from '@emailjs/browser';
 
 export function CreateGuardia() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -104,18 +105,19 @@ export function CreateGuardia() {
         createdBy: currentUser?.email || 'unknown'
       });
       
-      // Escribimos en la colección mail para Trigger Email
-      await addDoc(collection(db, 'mail'), {
-        to: email,
-        message: {
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+      if (serviceId && templateId && publicKey) {
+        await emailjs.send(serviceId, templateId, {
+          to_email: email,
           subject: `Confirmación de Guardia Registrada (${date} - Turno ${period})`,
-          html: `
-            <h3>Guardia registrada correctamente</h3>
-            <p>Se ha notificado tu ausencia al equipo directivo y se buscará un profesor de guardia para cubrir el turno ${period} del grupo ${group}.</p>
-            <p><strong>Tarea asignada confirmada:</strong><br/>${task.replace(/\n/g, '<br/>') || 'Sin tarea'}</p>
-          `
-        }
-      });
+          message: `Guardia registrada correctamente. Se ha notificado tu ausencia al equipo directivo y se buscará un profesor de guardia para cubrir el turno ${period} del grupo ${group}. \n\nTarea asignada: ${task || 'Sin tarea'}`,
+        }, publicKey);
+      } else {
+        console.warn("EmailJS credentials not configured.");
+      }
       
       setSuccessMsg(`Se ha registrado la guardia y se ha enviado un correo de confirmación a ${email}.`);
       setGroup(''); setSubject(''); setTask('');
