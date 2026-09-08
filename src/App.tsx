@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { AdminPanel } from './components/AdminPanel';
 import { GuardiasBoard } from './components/GuardiasBoard';
 import { CreateGuardia } from './components/CreateGuardia';
-import { School, Settings, Calendar, PlusCircle } from 'lucide-react';
+import { RankingBoard } from './components/RankingBoard';
+import { School, Settings, Calendar, PlusCircle, Trophy } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'board' | 'create' | 'admin'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'create' | 'ranking' | 'admin'>('board');
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
@@ -34,6 +35,16 @@ export default function App() {
               <span className="hidden sm:inline">Gestión de Guardias</span>
               <span className="sm:hidden">Gestión</span>
             </button>
+            {/* Desactivado temporalmente a petición
+            <button
+              onClick={() => setActiveTab('ranking')}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'ranking' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200/50' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+            >
+              <Trophy className="h-4 w-4 text-yellow-500" />
+              <span className="hidden sm:inline">Hall of Fame</span>
+              <span className="sm:hidden">Ranking</span>
+            </button>
+            */}
             <button
               onClick={() => setActiveTab('admin')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'admin' ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200/50' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
@@ -49,6 +60,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
         {activeTab === 'create' && <CreateGuardia />}
         {activeTab === 'board' && <GuardiasBoard />}
+        {/* {activeTab === 'ranking' && <RankingBoard />} */}
         {activeTab === 'admin' && <AdminPanel />}
       </main>
 
