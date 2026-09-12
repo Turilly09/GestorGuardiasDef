@@ -37,6 +37,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /groups/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /admins/{document=**} {
       // Only admins can see and modify the admins list
       allow read, write: if isAdmin();
