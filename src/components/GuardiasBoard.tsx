@@ -138,7 +138,7 @@ export function GuardiasBoard() {
     1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes'
   };
 
-  const statsGroups: { day: number, period: number, teachers: (Teacher & { count: number, breakdown: Record<string, number> })[] }[] = [];
+  const statsGroups: { day: number, period: number, teachers: (Teacher & { count: number, esoCount: number, bachCount: number, fpBasicaCount: number, fpOtherCount: number })[] }[] = [];
   const daysToInclude = viewFilter === 'week' ? [1, 2, 3, 4, 5] : [todayDayOfWeek];
   
   daysToInclude.forEach(d => {
@@ -154,12 +154,11 @@ export function GuardiasBoard() {
         const teachersWithStats = availableTeachers.map(t => {
            const completed = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === t.id && Number(g.period) === Number(p));
            const count = completed.length;
-           const breakdown = completed.reduce((acc, g) => {
-             const level = g.level || 'Sin clasificar';
-             acc[level] = (acc[level] || 0) + 1;
-             return acc;
-           }, {} as Record<string, number>);
-           return { ...t, count, breakdown };
+           const esoCount = completed.filter(g => g.level === 'ESO').length;
+           const bachCount = completed.filter(g => g.level === 'Bachillerato').length;
+           const fpBasicaCount = completed.filter(g => g.level === 'FP Básica').length;
+           const fpOtherCount = completed.filter(g => g.level === 'FP Media' || g.level === 'FP Superior').length;
+           return { ...t, count, esoCount, bachCount, fpBasicaCount, fpOtherCount };
         }).sort((a, b) => a.count - b.count); // Ascending: less guardias first
         
         statsGroups.push({ day: d, period: p, teachers: teachersWithStats });
@@ -400,26 +399,40 @@ export function GuardiasBoard() {
                               {group.teachers.length} disp.
                             </span>
                           </summary>
-                          <div className="p-2.5 space-y-2 bg-white rounded-b-lg">
-                            {group.teachers.map(t => (
-                              <div key={t.id} className="flex flex-col py-1.5 border-b border-slate-100 last:border-0 group/item">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-slate-700 truncate mr-2 group-hover/item:text-indigo-600 transition-colors cursor-default" title={t.name}>{t.name}</span>
-                                  <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 border border-indigo-100" title={`${t.count} guardias realizadas en este turno`}>
-                                    {t.count}
-                                  </span>
-                                </div>
-                                {t.count > 0 && (
-                                  <div className="flex flex-wrap gap-x-1.5 gap-y-1 mt-1.5">
-                                    {Object.entries(t.breakdown).map(([lvl, c]) => (
-                                      <span key={lvl} className="text-[10px] px-1.5 py-0.5 bg-slate-50 text-slate-500 rounded border border-slate-200" title={`${c} guardias en ${lvl}`}>
-                                        <span className="font-semibold">{lvl}:</span> {c as React.ReactNode}
+                          <div className="bg-white rounded-b-lg overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-slate-50/50 text-slate-500 uppercase tracking-wider">
+                                <tr>
+                                  <th className="px-3 py-2 font-medium border-b border-slate-100">Docente</th>
+                                  <th className="px-2 py-2 font-medium border-b border-slate-100 text-center" title="Total">Tot</th>
+                                  <th className="px-2 py-2 font-medium border-b border-slate-100 text-center" title="ESO">ESO</th>
+                                  <th className="px-2 py-2 font-medium border-b border-slate-100 text-center" title="Bachillerato">Bch</th>
+                                  <th className="px-2 py-2 font-medium border-b border-slate-100 text-center" title="Formación Profesional Básica">FP.B</th>
+                                  <th className="px-2 py-2 font-medium border-b border-slate-100 text-center" title="Formación Profesional (Media/Superior)">FP+</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {group.teachers.map(t => {
+                                  const fpBasicaCount = (t as any).fpBasicaCount || 0;
+                                  const fpOtherCount = (t as any).fpOtherCount || 0;
+                                  return (
+                                  <tr key={t.id} className="hover:bg-slate-50 transition-colors group/item">
+                                    <td className="px-3 py-2 font-medium text-slate-700 truncate max-w-[120px] group-hover/item:text-indigo-600 cursor-default" title={t.name}>
+                                      {t.name}
+                                    </td>
+                                    <td className="px-2 py-2 text-center">
+                                      <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold min-w-[20px] border border-indigo-100">
+                                        {t.count}
                                       </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
+                                    </td>
+                                    <td className="px-2 py-2 text-center text-slate-500">{t.esoCount > 0 ? t.esoCount : '-'}</td>
+                                    <td className="px-2 py-2 text-center text-slate-500">{t.bachCount > 0 ? t.bachCount : '-'}</td>
+                                    <td className="px-2 py-2 text-center text-slate-500">{fpBasicaCount > 0 ? fpBasicaCount : '-'}</td>
+                                    <td className="px-2 py-2 text-center text-slate-500">{fpOtherCount > 0 ? fpOtherCount : '-'}</td>
+                                  </tr>
+                                )})}
+                              </tbody>
+                            </table>
                           </div>
                         </details>
                       ))}

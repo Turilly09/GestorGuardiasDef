@@ -772,19 +772,28 @@ export function AdminPanel() {
               <tr>
                 <th className="px-6 py-4 border-b border-slate-200">Docente</th>
                 <th className="px-6 py-4 border-b border-slate-200">Horas Asignadas</th>
-                <th className="px-6 py-4 border-b border-slate-200">Guardias Cubiertas</th>
+                <th className="px-6 py-4 border-b border-slate-200 text-center" colSpan={4}>Guardias Cubiertas</th>
                 <th className="px-6 py-4 border-b border-slate-200 w-16 text-center">Acción</th>
+              </tr>
+              <tr className="text-xs">
+                <th className="px-6 py-2 border-b border-slate-200"></th>
+                <th className="px-6 py-2 border-b border-slate-200"></th>
+                <th className="px-4 py-2 border-b border-slate-200 text-center bg-slate-100/50">Total</th>
+                <th className="px-4 py-2 border-b border-slate-200 text-center bg-slate-100/50">ESO</th>
+                <th className="px-4 py-2 border-b border-slate-200 text-center bg-slate-100/50">Bach.</th>
+                <th className="px-4 py-2 border-b border-slate-200 text-center bg-slate-100/50">FP Básica</th>
+                <th className="px-4 py-2 border-b border-slate-200 text-center bg-slate-100/50">FP (M/S)</th>
+                <th className="px-6 py-2 border-b border-slate-200"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {teachers.map(teacher => {
                 const completed = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === teacher.id);
                 const total = completed.length;
-                const breakdown = completed.reduce((acc, g) => {
-                  const level = g.level || 'Sin clasificar';
-                  acc[level] = (acc[level] || 0) + 1;
-                  return acc;
-                }, {} as Record<string, number>);
+                const esoCount = completed.filter(g => g.level === 'ESO').length;
+                const bachCount = completed.filter(g => g.level === 'Bachillerato').length;
+                const fpBasicaCount = completed.filter(g => g.level === 'FP Básica').length;
+                const fpOtherCount = completed.filter(g => g.level === 'FP Media' || g.level === 'FP Superior').length;
 
                 return (
                 <tr key={teacher.id} className={`group hover:bg-slate-50 transition-colors ${teacher.active === false ? 'opacity-60 bg-slate-50' : ''}`}>
@@ -853,19 +862,20 @@ export function AdminPanel() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-bold text-slate-800 text-base">{total}</span>
-                      {total > 0 && (
-                        <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
-                          {Object.entries(breakdown).map(([lvl, count]) => (
-                            <span key={lvl} className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full border border-slate-200" title={`${count} guardias en ${lvl}`}>
-                              <span className="font-semibold">{lvl}:</span> {count}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  <td className="px-4 py-4 text-center">
+                    <span className="font-bold text-slate-800 text-base">{total > 0 ? total : '-'}</span>
+                  </td>
+                  <td className="px-4 py-4 text-center text-slate-600">
+                    {esoCount > 0 ? esoCount : '-'}
+                  </td>
+                  <td className="px-4 py-4 text-center text-slate-600">
+                    {bachCount > 0 ? bachCount : '-'}
+                  </td>
+                  <td className="px-4 py-4 text-center text-slate-600">
+                    {fpBasicaCount > 0 ? fpBasicaCount : '-'}
+                  </td>
+                  <td className="px-4 py-4 text-center text-slate-600">
+                    {fpOtherCount > 0 ? fpOtherCount : '-'}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <button onClick={() => toggleTeacherStatus(teacher)} className={`${teacher.active !== false ? 'text-orange-500 hover:text-orange-700 hover:bg-orange-50' : 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50'} p-2 rounded-md transition-colors`} title={teacher.active !== false ? "Dar de baja" : "Reactivar"}>
