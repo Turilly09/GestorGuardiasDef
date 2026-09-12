@@ -135,8 +135,8 @@ export function AdminPanel() {
     alert("Lista de asignaturas guardada correctamente.");
   };
 
-  const addGroup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const addGroup = async (e: React.FormEvent | React.KeyboardEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
     const name = newGroupName.trim();
     if (!name) return;
     
@@ -152,8 +152,9 @@ export function AdminPanel() {
         level: newGroupLevel
       });
       setNewGroupName('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding group:', err);
+      alert('Error al añadir grupo: ' + err.message);
     }
   };
 
@@ -614,12 +615,13 @@ export function AdminPanel() {
         </h2>
         <p className="text-sm text-slate-500 mb-4">Añade los grupos oficiales del centro y asigna su etapa educativa. Esto permitirá generar estadísticas precisas sobre qué etapas generan o cubren más guardias.</p>
         
-        <form onSubmit={addGroup} className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <Input 
             value={newGroupName} 
             onChange={e => setNewGroupName(e.target.value)} 
             placeholder="Nombre del grupo (Ej. 3º ESO A)"
             className="flex-grow max-w-sm"
+            onKeyDown={(e) => { if(e.key === 'Enter') addGroup(e as any) }}
           />
           <select 
             value={newGroupLevel} 
@@ -632,8 +634,8 @@ export function AdminPanel() {
             <option value="FP Media">FP Media</option>
             <option value="FP Superior">FP Superior</option>
           </select>
-          <Button type="submit">Añadir Grupo</Button>
-        </form>
+          <Button type="button" onClick={addGroup}>Añadir Grupo</Button>
+        </div>
 
         <div className="overflow-y-auto max-h-60 border border-slate-200 rounded-lg">
           <table className="w-full text-left text-sm text-slate-600">
