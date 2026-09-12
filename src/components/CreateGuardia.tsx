@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, doc } from 'firebase/firestore';
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
-import { Teacher } from '../types';
+import { Teacher, Group } from '../types';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { format } from 'date-fns';
@@ -15,6 +15,7 @@ export function CreateGuardia() {
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, message: string } | null>(null);
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [groupsData, setGroupsData] = useState<Group[]>([]);
   const [configGroups, setConfigGroups] = useState<string[]>([]);
   const [configSubjects, setConfigSubjects] = useState<string[]>([]);
   const [absentTeacherId, setAbsentTeacherId] = useState('');
@@ -49,9 +50,13 @@ export function CreateGuardia() {
 
     let unsubTeachers: () => void = () => {};
     let unsubConfig: () => void = () => {};
+    let unsubGroups: () => void = () => {};
     if (isAuthenticated) {
       unsubTeachers = onSnapshot(collection(db, 'teachers'), (snap) => {
         setTeachers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Teacher)));
+      });
+      unsubGroups = onSnapshot(collection(db, 'groups'), (snap) => {
+        setGroupsData(snap.docs.map(d => ({ id: d.id, ...d.data() } as Group)));
       });
       unsubConfig = onSnapshot(doc(db, 'config', 'general'), (snap) => {
         if (snap.exists()) {
@@ -62,7 +67,7 @@ export function CreateGuardia() {
       });
     }
 
-    return () => { unsubAuth(); unsubTeachers(); unsubConfig(); };
+    return () => { unsubAuth(); unsubTeachers(); unsubGroups(); unsubConfig(); };
   }, [isAuthenticated]);
 
   const handleLogin = async () => {
@@ -90,12 +95,16 @@ export function CreateGuardia() {
     setSuccessMsg('');
     
     try {
+      const selectedGroup = groupsData.find(g => g.name === group);
+      const level = selectedGroup ? selectedGroup.level : null;
+
       await addDoc(collection(db, 'guardias'), {
         absentTeacherId,
         substituteTeacherId: null,
         dateStr: date,
         period,
         group,
+        ...(level ? { level } : {}),
         subject,
         task,
         status: 'pending',
@@ -231,7 +240,17 @@ export function CreateGuardia() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Grupo / Clase a cubrir</label>
-              {configGroups.length > 0 ? (
+              {groupsData.length > 0 ? (
+                <select 
+                  value={group} 
+                  onChange={e => setGroup(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                  required
+                >
+                  <option value="">-- Seleccionar Grupo --</option>
+                  {groupsData.sort((a, b) => a.name.localeCompare(b.name)).map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                </select>
+              ) : configGroups.length > 0 ? (
                 <select 
                   value={group} 
                   onChange={e => setGroup(e.target.value)}

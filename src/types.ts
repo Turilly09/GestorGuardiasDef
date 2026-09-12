@@ -1,3 +1,11 @@
+export type EducationLevel = 'ESO' | 'Bachillerato' | 'FP Básica' | 'FP Media' | 'FP Superior' | 'Sin clasificar';
+
+export interface Group {
+  id?: string;
+  name: string;
+  level: EducationLevel;
+}
+
 export interface UserAvailability {
   dayOfWeek: number; // 1 = Lunes, 5 = Viernes
   period: number; // 1 to 6
@@ -18,6 +26,7 @@ export interface Guardia {
   dateStr: string; // YYYY-MM-DD
   period: number;
   group: string;
+  level?: EducationLevel;
   subject: string;
   task: string;
   status: 'pending' | 'assigned';

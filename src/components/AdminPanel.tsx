@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, setDoc, query, orderBy, getDoc } from 'firebase/firestore';
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { db, auth } from '../lib/firebase';
-import { Teacher, TurnConfig, Guardia } from '../types';
+import { Teacher, TurnConfig, Guardia, Group, EducationLevel } from '../types';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { UserPlus, Clock, Download, Archive, ArchiveRestore, Edit2, Check, X, AlertTriangle, LogOut, Calendar } from 'lucide-react';
@@ -32,13 +32,16 @@ export function AdminPanel() {
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
   const [editingTeacherName, setEditingTeacherName] = useState('');
   const [turns, setTurns] = useState<TurnConfig[]>(defaultTurns);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, message: string } | null>(null);
   
   const [admins, setAdmins] = useState<{email: string}[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
 
-  const [groupsInput, setGroupsInput] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupLevel, setNewGroupLevel] = useState<EducationLevel>('ESO');
+
   const [subjectsInput, setSubjectsInput] = useState('');
   const [bulkTeachersInput, setBulkTeachersInput] = useState('');
 
@@ -48,10 +51,15 @@ export function AdminPanel() {
     let unsubGuardias: () => void = () => {};
     let unsubConfig: () => void = () => {};
     let unsubAdmins: () => void = () => {};
+    let unsubGroups: () => void = () => {};
 
     if (isAuthenticated) {
       unsubTeachers = onSnapshot(collection(db, 'teachers'), (snap) => {
         setTeachers(snap.docs.map(d => ({ id: d.id, ...d.data() } as Teacher)));
+      });
+
+      unsubGroups = onSnapshot(collection(db, 'groups'), (snap) => {
+        setGroups(snap.docs.map(d => ({ id: d.id, ...d.data() } as Group)));
       });
 
       const qGuardias = query(collection(db, 'guardias'));
@@ -70,7 +78,6 @@ export function AdminPanel() {
         if (snap.exists()) {
           const data = snap.data();
           if (data.turns) setTurns(data.turns);
-          if (data.groups) setGroupsInput(data.groups.join(', '));
           if (data.subjects) setSubjectsInput(data.subjects.join(', '));
         } else {
           setDoc(doc(db, 'config', 'general'), { turns: defaultTurns });
@@ -105,7 +112,7 @@ export function AdminPanel() {
       setAuthLoading(false);
     });
 
-    return () => { unsubAuth(); unsubTeachers(); unsubGuardias(); unsubConfig(); unsubAdmins(); };
+    return () => { unsubAuth(); unsubTeachers(); unsubGuardias(); unsubConfig(); unsubAdmins(); unsubGroups(); };
   }, [isAuthenticated]);
 
   const handleTurnChange = (index: number, field: 'startTime' | 'endTime', value: string) => {
@@ -120,14 +127,44 @@ export function AdminPanel() {
   };
 
   const saveLists = async () => {
-    const groups = groupsInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
     const subjects = subjectsInput.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
     
     await setDoc(doc(db, 'config', 'general'), { 
-      groups: Array.from(new Set(groups)).sort(), 
       subjects: Array.from(new Set(subjects)).sort() 
     }, { merge: true });
-    alert("Listas guardadas correctamente.");
+    alert("Lista de asignaturas guardada correctamente.");
+  };
+
+  const addGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newGroupName.trim();
+    if (!name) return;
+    
+    const exists = groups.some(g => g.name.toLowerCase() === name.toLowerCase());
+    if (exists) {
+      alert("Ya existe un grupo con ese nombre.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'groups'), {
+        name,
+        level: newGroupLevel
+      });
+      setNewGroupName('');
+    } catch (err) {
+      console.error('Error adding group:', err);
+    }
+  };
+
+  const deleteGroup = async (id: string) => {
+    if (window.confirm("¿Seguro que quieres borrar este grupo?")) {
+      try {
+        await deleteDoc(doc(db, 'groups', id));
+      } catch (err) {
+        console.error("Error borrando grupo:", err);
+      }
+    }
   };
 
   const addTeacher = async (e: React.FormEvent) => {
@@ -573,31 +610,76 @@ export function AdminPanel() {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
         <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
           <Edit2 className="h-5 w-5 text-indigo-600" />
-          Configurar Listas (Grupos y Asignaturas)
+          Configurar Etapas y Grupos
         </h2>
-        <p className="text-sm text-slate-500 mb-4">Pega aquí el listado de grupos y asignaturas para que aparezcan como desplegables en el formulario de nueva guardia. Puedes copiarlas directamente desde Excel o Word (se separarán por comas y saltos de línea automáticamente).</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Grupos</label>
-            <textarea
-              className="w-full border border-slate-300 rounded-md p-2 h-32 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={groupsInput}
-              onChange={e => setGroupsInput(e.target.value)}
-              placeholder="Ej: 1A, 1B, 2A, 2B..."
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Asignaturas</label>
-            <textarea
-              className="w-full border border-slate-300 rounded-md p-2 h-32 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              value={subjectsInput}
-              onChange={e => setSubjectsInput(e.target.value)}
-              placeholder="Ej: Matemáticas, Lengua, Inglés..."
-            />
-          </div>
+        <p className="text-sm text-slate-500 mb-4">Añade los grupos oficiales del centro y asigna su etapa educativa. Esto permitirá generar estadísticas precisas sobre qué etapas generan o cubren más guardias.</p>
+        
+        <form onSubmit={addGroup} className="flex flex-col sm:flex-row gap-3 mb-6">
+          <Input 
+            value={newGroupName} 
+            onChange={e => setNewGroupName(e.target.value)} 
+            placeholder="Nombre del grupo (Ej. 3º ESO A)"
+            className="flex-grow max-w-sm"
+          />
+          <select 
+            value={newGroupLevel} 
+            onChange={e => setNewGroupLevel(e.target.value as EducationLevel)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="ESO">ESO</option>
+            <option value="Bachillerato">Bachillerato</option>
+            <option value="FP Básica">FP Básica</option>
+            <option value="FP Media">FP Media</option>
+            <option value="FP Superior">FP Superior</option>
+          </select>
+          <Button type="submit">Añadir Grupo</Button>
+        </form>
+
+        <div className="overflow-y-auto max-h-60 border border-slate-200 rounded-lg">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-700 font-medium sticky top-0">
+              <tr>
+                <th className="px-4 py-2 border-b border-slate-200">Grupo</th>
+                <th className="px-4 py-2 border-b border-slate-200">Etapa Educativa</th>
+                <th className="px-4 py-2 border-b border-slate-200 w-16 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {groups.sort((a, b) => a.name.localeCompare(b.name)).map(g => (
+                <tr key={g.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-2 font-medium">{g.name}</td>
+                  <td className="px-4 py-2">
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800">
+                      {g.level}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    <button onClick={() => deleteGroup(g.id!)} className="text-slate-400 hover:text-red-600 p-1 rounded hover:bg-red-50">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {groups.length === 0 && <tr><td colSpan={3} className="px-4 py-4 text-center text-slate-500">No hay grupos configurados</td></tr>}
+            </tbody>
+          </table>
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={saveLists}>Guardar Listas</Button>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <Edit2 className="h-5 w-5 text-indigo-600" />
+          Configurar Asignaturas
+        </h2>
+        <p className="text-sm text-slate-500 mb-4">Pega aquí el listado de asignaturas para que aparezcan en el formulario de nueva guardia (se separarán por comas y saltos de línea automáticamente).</p>
+        <div className="flex flex-col items-end gap-3 max-w-2xl">
+          <textarea
+            className="w-full border border-slate-300 rounded-md p-2 h-32 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            value={subjectsInput}
+            onChange={e => setSubjectsInput(e.target.value)}
+            placeholder="Ej: Matemáticas, Lengua, Inglés..."
+          />
+          <Button onClick={saveLists}>Guardar Asignaturas</Button>
         </div>
       </div>
 
@@ -688,11 +770,21 @@ export function AdminPanel() {
               <tr>
                 <th className="px-6 py-4 border-b border-slate-200">Docente</th>
                 <th className="px-6 py-4 border-b border-slate-200">Horas Asignadas</th>
+                <th className="px-6 py-4 border-b border-slate-200">Guardias Cubiertas</th>
                 <th className="px-6 py-4 border-b border-slate-200 w-16 text-center">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {teachers.map(teacher => (
+              {teachers.map(teacher => {
+                const completed = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === teacher.id);
+                const total = completed.length;
+                const breakdown = completed.reduce((acc, g) => {
+                  const level = g.level || 'Sin clasificar';
+                  acc[level] = (acc[level] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>);
+
+                return (
                 <tr key={teacher.id} className={`group hover:bg-slate-50 transition-colors ${teacher.active === false ? 'opacity-60 bg-slate-50' : ''}`}>
                   <td className="px-6 py-4 font-medium text-slate-900">
                     <div className="flex items-center gap-2">
@@ -759,15 +851,30 @@ export function AdminPanel() {
                       ))}
                     </div>
                   </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-bold text-slate-800 text-base">{total}</span>
+                      {total > 0 && (
+                        <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
+                          {Object.entries(breakdown).map(([lvl, count]) => (
+                            <span key={lvl} className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full border border-slate-200" title={`${count} guardias en ${lvl}`}>
+                              <span className="font-semibold">{lvl}:</span> {count}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-center">
                     <button onClick={() => toggleTeacherStatus(teacher)} className={`${teacher.active !== false ? 'text-orange-500 hover:text-orange-700 hover:bg-orange-50' : 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50'} p-2 rounded-md transition-colors`} title={teacher.active !== false ? "Dar de baja" : "Reactivar"}>
                       {teacher.active !== false ? <Archive className="h-4 w-4" /> : <ArchiveRestore className="h-4 w-4" />}
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {teachers.length === 0 && (
-                <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">No hay docentes registrados.</td></tr>
+                <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No hay docentes registrados.</td></tr>
               )}
             </tbody>
           </table>
