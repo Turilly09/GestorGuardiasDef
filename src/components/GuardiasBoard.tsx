@@ -138,7 +138,7 @@ export function GuardiasBoard() {
     1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes'
   };
 
-  const statsGroups: { day: number, period: number, teachers: (Teacher & { count: number })[] }[] = [];
+  const statsGroups: { day: number, period: number, teachers: (Teacher & { count: number, breakdown: Record<string, number> })[] }[] = [];
   const daysToInclude = viewFilter === 'week' ? [1, 2, 3, 4, 5] : [todayDayOfWeek];
   
   daysToInclude.forEach(d => {
@@ -152,9 +152,14 @@ export function GuardiasBoard() {
       
       if (availableTeachers.length > 0) {
         const teachersWithStats = availableTeachers.map(t => {
-           // Use only the filtered guardias so it matches the Selected View Filter (Current, Today, Week)
-           const count = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === t.id && Number(g.period) === Number(p)).length;
-           return { ...t, count };
+           const completed = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === t.id && Number(g.period) === Number(p));
+           const count = completed.length;
+           const breakdown = completed.reduce((acc, g) => {
+             const level = g.level || 'Sin clasificar';
+             acc[level] = (acc[level] || 0) + 1;
+             return acc;
+           }, {} as Record<string, number>);
+           return { ...t, count, breakdown };
         }).sort((a, b) => a.count - b.count); // Ascending: less guardias first
         
         statsGroups.push({ day: d, period: p, teachers: teachersWithStats });
@@ -397,11 +402,22 @@ export function GuardiasBoard() {
                           </summary>
                           <div className="p-2.5 space-y-2 bg-white rounded-b-lg">
                             {group.teachers.map(t => (
-                              <div key={t.id} className="flex items-center justify-between group/item">
-                                <span className="text-sm font-medium text-slate-700 truncate mr-2 group-hover/item:text-indigo-600 transition-colors cursor-default" title={t.name}>{t.name}</span>
-                                <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 border border-indigo-100" title={`${t.count} guardias realizadas en este turno`}>
-                                  {t.count}
-                                </span>
+                              <div key={t.id} className="flex flex-col py-1.5 border-b border-slate-100 last:border-0 group/item">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-slate-700 truncate mr-2 group-hover/item:text-indigo-600 transition-colors cursor-default" title={t.name}>{t.name}</span>
+                                  <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 border border-indigo-100" title={`${t.count} guardias realizadas en este turno`}>
+                                    {t.count}
+                                  </span>
+                                </div>
+                                {t.count > 0 && (
+                                  <div className="flex flex-wrap gap-x-1.5 gap-y-1 mt-1.5">
+                                    {Object.entries(t.breakdown).map(([lvl, c]) => (
+                                      <span key={lvl} className="text-[10px] px-1.5 py-0.5 bg-slate-50 text-slate-500 rounded border border-slate-200" title={`${c} guardias en ${lvl}`}>
+                                        <span className="font-semibold">{lvl}:</span> {c as React.ReactNode}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
