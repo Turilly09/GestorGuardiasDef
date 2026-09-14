@@ -232,7 +232,7 @@ export function CreateGuardia() {
                 onChange={e => setPeriod(Number(e.target.value))}
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
               >
-                {[1,2,3,4,5,6].map(p => <option key={p} value={p}>Turno {p}</option>)}
+                {[1, 2, 3, 4, 5, 6].map(p => <option key={p} value={p}>Turno {p}</option>)}
               </select>
             </div>
           </div>

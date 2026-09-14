@@ -17,6 +17,7 @@ export interface Teacher {
   email?: string;
   availability: UserAvailability[];
   active?: boolean;
+  shift?: 'mañana' | 'tarde';
 }
 
 export interface Guardia {

@@ -150,6 +150,7 @@ export function GuardiasBoard() {
         (t.availability || []).some(a => Number(a.dayOfWeek) === Number(d) && Number(a.period) === Number(p))
       );
       
+      // Let's not filter by shift for now, just show them as available.
       if (availableTeachers.length > 0) {
         const teachersWithStats = availableTeachers.map(t => {
            const completed = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === t.id && Number(g.period) === Number(p));
