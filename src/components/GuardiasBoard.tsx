@@ -143,7 +143,7 @@ export function GuardiasBoard() {
   
   daysToInclude.forEach(d => {
     if (d > 5) return; // Only Mon-Fri
-    const periodsToInclude = viewFilter === 'current' ? (currentPeriod ? [currentPeriod] : []) : [1, 2, 3, 4, 5, 6];
+    const periodsToInclude = viewFilter === 'current' ? (currentPeriod ? [currentPeriod] : []) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     
     periodsToInclude.forEach(p => {
       const availableTeachers = teachers.filter(t => 

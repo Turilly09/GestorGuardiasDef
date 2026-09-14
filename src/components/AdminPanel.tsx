@@ -18,6 +18,12 @@ const defaultTurns: TurnConfig[] = [
   { period: 4, startTime: '11:15', endTime: '12:10' },
   { period: 5, startTime: '12:10', endTime: '13:05' },
   { period: 6, startTime: '13:05', endTime: '14:00' },
+  { period: 7, startTime: '14:00', endTime: '14:55' },
+  { period: 8, startTime: '14:55', endTime: '15:50' },
+  { period: 9, startTime: '15:50', endTime: '16:45' },
+  { period: 10, startTime: '17:15', endTime: '18:10' },
+  { period: 11, startTime: '18:10', endTime: '19:05' },
+  { period: 12, startTime: '19:05', endTime: '20:00' },
 ];
 
 export function AdminPanel() {
@@ -79,9 +85,8 @@ export function AdminPanel() {
           const data = snap.data();
           if (data.turns) {
             let dbTurns = data.turns;
-            // Trim to 6 if they were previously expanded
-            if (dbTurns.length > 6) {
-              dbTurns = dbTurns.slice(0, 6);
+            if (dbTurns.length < 12) {
+              dbTurns = [...dbTurns, ...defaultTurns.slice(dbTurns.length)];
             }
             setTurns(dbTurns);
           }
