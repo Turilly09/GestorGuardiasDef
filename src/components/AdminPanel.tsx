@@ -5,7 +5,7 @@ import { db, auth } from '../lib/firebase';
 import { Teacher, TurnConfig, Guardia, Group, EducationLevel } from '../types';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
-import { UserPlus, Clock, Download, Archive, ArchiveRestore, Edit2, Check, X, AlertTriangle, LogOut, Calendar } from 'lucide-react';
+import { UserPlus, Clock, Download, Archive, ArchiveRestore, Edit2, Check, X, AlertTriangle, LogOut, Calendar, Zap } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format, parseISO } from 'date-fns';
@@ -50,6 +50,7 @@ export function AdminPanel() {
 
   const [subjectsInput, setSubjectsInput] = useState('');
   const [bulkTeachersInput, setBulkTeachersInput] = useState('');
+  const [autoAssignEnabled, setAutoAssignEnabled] = useState<boolean>(false);
 
   useEffect(() => {
     // Only subscribe to collections if authenticated, else we might get permission errors
@@ -91,6 +92,7 @@ export function AdminPanel() {
             setTurns(dbTurns);
           }
           if (data.subjects) setSubjectsInput(data.subjects.join(', '));
+          if (data.autoAssignEnabled !== undefined) setAutoAssignEnabled(data.autoAssignEnabled);
         } else {
           setDoc(doc(db, 'config', 'general'), { turns: defaultTurns });
         }
@@ -373,6 +375,16 @@ export function AdminPanel() {
     }
   };
 
+  const toggleAutoAssign = async (enabled: boolean) => {
+    setAutoAssignEnabled(enabled);
+    try {
+      await setDoc(doc(db, 'config', 'general'), { autoAssignEnabled: enabled }, { merge: true });
+    } catch (err) {
+      console.error("Error updating autoAssignEnabled:", err);
+      setAlertDialog({ isOpen: true, message: "Error al actualizar la configuración de asignación automática." });
+    }
+  };
+
   const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
   const periods = [1, 2, 3, 4, 5, 6];
 
@@ -577,6 +589,45 @@ export function AdminPanel() {
         <div className="mt-4 flex justify-end">
           <Button onClick={saveTurns}>Guardar Horarios</Button>
         </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-indigo-600" />
+              Asignación Automática Diaria
+            </h2>
+            <p className="text-sm text-slate-500 max-w-2xl">
+              Habilita en el Tablón de Guardias el botón para repartir automáticamente a primera hora las ausencias pendientes del día entre los docentes de guardia disponibles, de forma equitativa y con aviso si hay déficit.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${autoAssignEnabled ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+              {autoAssignEnabled ? 'Activado' : 'Desactivado (100% Manual)'}
+            </span>
+            <button
+              type="button"
+              onClick={() => toggleAutoAssign(!autoAssignEnabled)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 ${
+                autoAssignEnabled ? 'bg-indigo-600' : 'bg-slate-300'
+              }`}
+              role="switch"
+              aria-checked={autoAssignEnabled}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  autoAssignEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+        {!autoAssignEnabled && (
+          <div className="mt-3 text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
+            💡 <strong>Modo actual:</strong> El sistema funciona de manera 100% manual como hasta ahora. Al activar este interruptor, Jefatura dispondrá del botón para asignar las guardias del día con un solo clic.
+          </div>
+        )}
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">

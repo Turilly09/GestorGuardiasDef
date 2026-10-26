@@ -31,6 +31,7 @@ export interface Guardia {
   subject: string;
   task: string;
   status: 'pending' | 'assigned';
+  assignedBy?: 'auto' | 'manual';
   createdAt: number;
   contactEmail?: string;
 }
@@ -45,4 +46,5 @@ export interface AppConfig {
   turns: TurnConfig[];
   groups?: string[];
   subjects?: string[];
+  autoAssignEnabled?: boolean;
 }

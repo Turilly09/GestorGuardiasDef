@@ -5,7 +5,8 @@ import { Guardia, Teacher, TurnConfig } from '../types';
 import { Button } from './ui/Button';
 import { format, parseISO, isSameWeek } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Users, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
+import { Users, CheckCircle2, Clock, ChevronDown, Zap } from 'lucide-react';
+import { AutoAssignModal } from './AutoAssignModal';
 
 export function GuardiasBoard() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -13,6 +14,8 @@ export function GuardiasBoard() {
   const [turns, setTurns] = useState<TurnConfig[]>([]);
   const [now, setNow] = useState(new Date());
   const [viewFilter, setViewFilter] = useState<'current' | 'today' | 'week'>('current');
+  const [autoAssignEnabled, setAutoAssignEnabled] = useState<boolean>(false);
+  const [isAutoAssignModalOpen, setIsAutoAssignModalOpen] = useState<boolean>(false);
 
   // Assignment state
   const [assigningGuardiaId, setAssigningGuardiaId] = useState<string | null>(null);
@@ -36,8 +39,10 @@ export function GuardiasBoard() {
     });
 
     const unsubConfig = onSnapshot(doc(db, 'config', 'general'), (snap) => {
-      if (snap.exists() && snap.data().turns) {
-        setTurns(snap.data().turns);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.turns) setTurns(data.turns);
+        if (data.autoAssignEnabled !== undefined) setAutoAssignEnabled(data.autoAssignEnabled);
       }
     });
 
@@ -58,6 +63,7 @@ export function GuardiasBoard() {
 
   const currentPeriod = getCurrentPeriod();
   const todayStr = format(now, 'yyyy-MM-dd');
+  const pendingTodayCount = guardias.filter(g => g.dateStr === todayStr && g.status === 'pending').length;
 
   const filteredGuardias = guardias.filter(g => {
     const guardiaDate = parseISO(g.dateStr);
@@ -178,25 +184,41 @@ export function GuardiasBoard() {
             {viewFilter === 'current' ? `Guardias (Turno ${currentPeriod || 'Fuera de Horario'})` : 
              viewFilter === 'today' ? 'Guardias de Hoy' : 'Guardias de la Semana'}
           </h2>
-          <div className="flex bg-slate-200 rounded-lg p-1 self-stretch sm:self-auto overflow-x-auto">
-            <button 
-              onClick={() => setViewFilter('current')} 
-              className={`whitespace-nowrap flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md transition-colors ${viewFilter === 'current' ? 'bg-white shadow text-indigo-700 font-medium' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Turno Actual
-            </button>
-            <button 
-              onClick={() => setViewFilter('today')} 
-              className={`whitespace-nowrap flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md transition-colors ${viewFilter === 'today' ? 'bg-white shadow text-indigo-700 font-medium' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Hoy
-            </button>
-            <button 
-              onClick={() => setViewFilter('week')} 
-              className={`whitespace-nowrap flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md transition-colors ${viewFilter === 'week' ? 'bg-white shadow text-indigo-700 font-medium' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              Semana
-            </button>
+          <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
+            {autoAssignEnabled && (
+              <Button
+                onClick={() => setIsAutoAssignModalOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 py-1.5 px-3 shadow-xs"
+              >
+                <Zap className="h-4 w-4" />
+                <span>Asignar guardias de hoy</span>
+                {pendingTodayCount > 0 && (
+                  <span className="bg-white/20 text-white text-[11px] px-1.5 py-0.5 rounded-full font-bold ml-0.5">
+                    {pendingTodayCount}
+                  </span>
+                )}
+              </Button>
+            )}
+            <div className="flex bg-slate-200 rounded-lg p-1 overflow-x-auto">
+              <button 
+                onClick={() => setViewFilter('current')} 
+                className={`whitespace-nowrap flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md transition-colors ${viewFilter === 'current' ? 'bg-white shadow text-indigo-700 font-medium' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Turno Actual
+              </button>
+              <button 
+                onClick={() => setViewFilter('today')} 
+                className={`whitespace-nowrap flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md transition-colors ${viewFilter === 'today' ? 'bg-white shadow text-indigo-700 font-medium' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Hoy
+              </button>
+              <button 
+                onClick={() => setViewFilter('week')} 
+                className={`whitespace-nowrap flex-1 sm:flex-none px-3 py-1.5 text-sm rounded-md transition-colors ${viewFilter === 'week' ? 'bg-white shadow text-indigo-700 font-medium' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Semana
+              </button>
+            </div>
           </div>
         </div>
         
@@ -249,9 +271,14 @@ export function GuardiasBoard() {
                                     Pendiente
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                                     {substitute}
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                     <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                                     <span>{substitute}</span>
+                                     {g.assignedBy === 'auto' && (
+                                       <span className="text-[10px] bg-indigo-100 text-indigo-700 font-semibold px-1 rounded">
+                                         Auto
+                                       </span>
+                                     )}
                                   </span>
                                 )}
                               </td>
@@ -348,10 +375,15 @@ export function GuardiasBoard() {
                                  <div className="flex flex-col items-end gap-2 w-full">
                                    <div className="flex items-center gap-1.5 text-green-700 font-medium text-sm bg-green-50 px-3 py-1.5 rounded-lg border border-green-100">
                                      <CheckCircle2 className="h-4 w-4" />
-                                     {substitute}
+                                     <span>{substitute}</span>
+                                     {g.assignedBy === 'auto' && (
+                                       <span className="text-[10px] bg-indigo-100 text-indigo-700 font-semibold px-1.5 py-0.5 rounded ml-1" title="Asignada automáticamente por sistema">
+                                         Auto
+                                       </span>
+                                     )}
                                    </div>
                                    <button onClick={() => cancelGuardia(g.id!)} className="text-xs text-slate-400 hover:text-slate-600 underline">
-                                     Liberar Guardia
+                                     Liberar / Reasignar
                                    </button>
                                  </div>
                               )}
@@ -447,6 +479,14 @@ export function GuardiasBoard() {
           </div>
         </div>
       </div>
+
+      <AutoAssignModal
+        isOpen={isAutoAssignModalOpen}
+        onClose={() => setIsAutoAssignModalOpen(false)}
+        dateStr={todayStr}
+        guardias={guardias}
+        teachers={teachers}
+      />
 
     </div>
   );
