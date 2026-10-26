@@ -61,6 +61,13 @@ export function GuardiasBoard() {
     return null;
   };
 
+  const getSubstituteName = (substituteId: string | null, status: string) => {
+    if (!substituteId) return status === 'pending' ? '---' : 'Desconocido';
+    if (substituteId === 'aula-libre') return 'Aula libre';
+    if (substituteId === 'guardia-biblioteca') return 'Guardia de Biblioteca';
+    return teachers.find(t => t.id === substituteId)?.name || 'Desconocido';
+  };
+
   const currentPeriod = getCurrentPeriod();
   const todayStr = format(now, 'yyyy-MM-dd');
   const pendingTodayCount = guardias.filter(g => g.dateStr === todayStr && g.status === 'pending').length;
@@ -96,7 +103,7 @@ export function GuardiasBoard() {
       });
       setAssigningGuardiaId(null);
 
-      if (selectedSubstituteId !== 'aula-libre') {
+      if (selectedSubstituteId !== 'aula-libre' && selectedSubstituteId !== 'guardia-biblioteca') {
         const substitute = teachers.find(t => t.id === selectedSubstituteId);
         const guardia = guardias.find(g => g.id === guardiaId);
         if (substitute?.email && guardia) {
@@ -144,7 +151,7 @@ export function GuardiasBoard() {
     1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes'
   };
 
-  const statsGroups: { day: number, period: number, teachers: (Teacher & { count: number, esoCount: number, bachCount: number, fpBasicaCount: number, fpOtherCount: number })[] }[] = [];
+  const statsGroups: { day: number, period: number, teachers: (Teacher & { count: number, esoCount: number, bachCount: number, fpBasicaCount: number, fpOtherCount: number, isBiblio?: boolean })[] }[] = [];
   const daysToInclude = viewFilter === 'week' ? [1, 2, 3, 4, 5] : [todayDayOfWeek];
   
   daysToInclude.forEach(d => {
@@ -159,13 +166,15 @@ export function GuardiasBoard() {
       // Let's not filter by shift for now, just show them as available.
       if (availableTeachers.length > 0) {
         const teachersWithStats = availableTeachers.map(t => {
+           const avail = (t.availability || []).find(a => Number(a.dayOfWeek) === Number(d) && Number(a.period) === Number(p));
+           const isBiblio = avail?.type === 'biblioteca';
            const completed = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === t.id && Number(g.period) === Number(p));
            const count = completed.length;
            const esoCount = completed.filter(g => g.level === 'ESO').length;
            const bachCount = completed.filter(g => g.level === 'Bachillerato').length;
            const fpBasicaCount = completed.filter(g => g.level === 'FP Básica').length;
            const fpOtherCount = completed.filter(g => g.level === 'FP Media' || g.level === 'FP Superior').length;
-           return { ...t, count, esoCount, bachCount, fpBasicaCount, fpOtherCount };
+           return { ...t, count, esoCount, bachCount, fpBasicaCount, fpOtherCount, isBiblio };
         }).sort((a, b) => a.count - b.count); // Ascending: less guardias first
         
         statsGroups.push({ day: d, period: p, teachers: teachersWithStats });
@@ -257,7 +266,7 @@ export function GuardiasBoard() {
                       <tbody className="divide-y divide-slate-50">
                         {dayGuardias.map(g => {
                           const absent = teachers.find(t => t.id === g.absentTeacherId)?.name || 'Desconocido';
-                          const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || (g.status === 'pending' ? '---' : 'Desconocido'));
+                          const substitute = getSubstituteName(g.substituteTeacherId, g.status);
                           const isPending = g.status === 'pending';
                           
                           return (
@@ -316,7 +325,7 @@ export function GuardiasBoard() {
                   <div className="p-4 grid gap-4 bg-slate-50/50 rounded-b-xl">
                     {groupGuardias.map(g => {
                       const absent = teachers.find(t => t.id === g.absentTeacherId)?.name || 'Desconocido';
-                      const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || 'Desconocido');
+                      const substitute = getSubstituteName(g.substituteTeacherId, g.status);
                       const isPending = g.status === 'pending';
                       const dayOfWeek = parseISO(g.dateStr).getDay();
                       
@@ -348,6 +357,7 @@ export function GuardiasBoard() {
                                       <option value="">Seleccionar Docente...</option>
                                       <optgroup label="Opciones Especiales">
                                         <option value="aula-libre">Aula Libre (Sin Alumnos)</option>
+                                        <option value="guardia-biblioteca">Guardia de Biblioteca</option>
                                       </optgroup>
                                       <optgroup label="Disponibles en este turno">
                                         {teachers
@@ -357,7 +367,17 @@ export function GuardiasBoard() {
                                             const adjustedGDay = dayRaw === 0 ? 7 : dayRaw;
                                             return (t.availability || []).some(a => Number(a.dayOfWeek) === adjustedGDay && Number(a.period) === Number(g.period));
                                           })
-                                          .map(t => <option key={t.id} value={t.id}>{t.name}</option>)
+                                          .map(t => {
+                                            const dayRaw = parseISO(g.dateStr).getDay();
+                                            const adjustedGDay = dayRaw === 0 ? 7 : dayRaw;
+                                            const avail = (t.availability || []).find(a => Number(a.dayOfWeek) === adjustedGDay && Number(a.period) === Number(g.period));
+                                            const isBiblio = avail?.type === 'biblioteca';
+                                            return (
+                                              <option key={t.id} value={t.id}>
+                                                {t.name} {isBiblio ? '📚 (Guardia Biblioteca)' : ''}
+                                              </option>
+                                            );
+                                          })
                                         }
                                       </optgroup>
                                     </select>
@@ -451,7 +471,7 @@ export function GuardiasBoard() {
                                   return (
                                   <tr key={t.id} className="hover:bg-slate-50 transition-colors group/item">
                                     <td className="px-3 py-2 font-medium text-slate-700 truncate max-w-[120px] group-hover/item:text-indigo-600 cursor-default" title={t.name}>
-                                      {t.name}
+                                       {t.name} {(t as any).isBiblio ? "📚" : ""}
                                     </td>
                                     <td className="px-2 py-2 text-center">
                                       <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold min-w-[20px] border border-indigo-100">

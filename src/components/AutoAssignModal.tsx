@@ -206,8 +206,12 @@ export function AutoAssignModal({
                           <div className="flex items-center gap-2 self-end sm:self-center">
                             <ArrowRight className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
                             <div className="text-right">
-                              <span className="inline-flex items-center gap-1 font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
-                                {item.substituteTeacher.name}
+                              <span className={`inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-md border ${
+                                item.isBiblio 
+                                  ? 'text-purple-700 bg-purple-50 border-purple-200' 
+                                  : 'text-indigo-700 bg-indigo-50 border-indigo-100'
+                              }`}>
+                                {item.substituteTeacher.name} {item.isBiblio && <span title="Docente en Guardia de Biblioteca">📚</span>}
                               </span>
                               <span className="block text-[10px] text-slate-400 mt-0.5">
                                 {item.periodCount} en este turno • {item.totalCount} totales

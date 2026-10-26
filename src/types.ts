@@ -9,6 +9,7 @@ export interface Group {
 export interface UserAvailability {
   dayOfWeek: number; // 1 = Lunes, 5 = Viernes
   period: number; // 1 to 6
+  type?: 'regular' | 'biblioteca';
 }
 
 export interface Teacher {

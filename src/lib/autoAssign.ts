@@ -6,6 +6,7 @@ export interface AutoAssignmentItem {
   substituteTeacher: Teacher;
   periodCount: number;
   totalCount: number;
+  isBiblio?: boolean;
 }
 
 export interface DeficitReport {
@@ -28,11 +29,14 @@ export interface AutoAssignResult {
  * Calculates optimal and fair assignment of pending guardias for a given date.
  * - Excludes inactive teachers (active === false).
  * - Excludes teachers who are absent during the same period.
+ * - Prioritizes regular guard teachers over library guard teachers (Guardia de Biblioteca).
+ * - Library guard teachers are assigned when there are more guardias than regular guard teachers.
  * - Sorts available candidates by:
- *    1. Fewest guardias completed in this specific period (equidad de turno).
- *    2. Fewest total guardias completed in the center (desempate global).
- *    3. Alphabetical tie-breaker.
- * - Detects deficits where there are more absences than available teachers.
+ *    1. Regular vs Biblioteca guard (Regular first).
+ *    2. Fewest guardias completed in this specific period (equidad de turno).
+ *    3. Fewest total guardias completed in the center (desempate global).
+ *    4. Alphabetical tie-breaker.
+ * - Detects deficits where there are more absences than available teachers (including library guard teachers).
  */
 export function calculateAutoAssignments(
   dateStr: string,
@@ -86,6 +90,11 @@ export function calculateAutoAssignments(
 
     // Calculate stats for each candidate
     const candidatesWithStats = availableCandidates.map(teacher => {
+      const avail = (teacher.availability || []).find(
+        a => Number(a.dayOfWeek) === Number(adjustedDay) && Number(a.period) === Number(period)
+      );
+      const isBiblio = avail?.type === 'biblioteca';
+
       const completedGuardias = guardias.filter(
         g => g.status === 'assigned' && g.substituteTeacherId === teacher.id
       );
@@ -93,18 +102,22 @@ export function calculateAutoAssignments(
         g => Number(g.period) === Number(period)
       ).length;
       const totalCount = completedGuardias.filter(
-        g => g.substituteTeacherId !== 'aula-libre'
+        g => g.substituteTeacherId !== 'aula-libre' && g.substituteTeacherId !== 'guardia-biblioteca'
       ).length;
 
       return {
         teacher,
         periodCount,
         totalCount,
+        isBiblio,
       };
     });
 
-    // Sort: 1) Lowest periodCount, 2) Lowest totalCount, 3) Name
+    // Sort: 1) Regular candidates before Biblio candidates, 2) Lowest periodCount, 3) Lowest totalCount, 4) Name
     candidatesWithStats.sort((a, b) => {
+      if (a.isBiblio !== b.isBiblio) {
+        return a.isBiblio ? 1 : -1; // Regular (false) before Biblio (true)
+      }
       if (a.periodCount !== b.periodCount) {
         return a.periodCount - b.periodCount;
       }
@@ -122,6 +135,7 @@ export function calculateAutoAssignments(
         substituteTeacher: candidatesWithStats[i].teacher,
         periodCount: candidatesWithStats[i].periodCount,
         totalCount: candidatesWithStats[i].totalCount,
+        isBiblio: candidatesWithStats[i].isBiblio,
       });
     }
 

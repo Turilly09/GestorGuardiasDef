@@ -271,17 +271,23 @@ export function AdminPanel() {
   const toggleAvailability = async (teacher: Teacher, day: number, period: number) => {
     if (!teacher.id) return;
     const current = teacher.availability || [];
-    const exists = current.find(a => a.dayOfWeek === day && a.period === period);
+    const existingIndex = current.findIndex(a => Number(a.dayOfWeek) === Number(day) && Number(a.period) === Number(period));
     
     let newAvailability;
-    if (exists) {
-      newAvailability = current.filter(a => !(a.dayOfWeek === day && a.period === period));
+    if (existingIndex >= 0) {
+      const existing = current[existingIndex];
+      if (!existing.type || existing.type === 'regular') {
+        newAvailability = [...current];
+        newAvailability[existingIndex] = { ...existing, type: 'biblioteca' };
+      } else {
+        newAvailability = current.filter((_, idx) => idx !== existingIndex);
+      }
     } else {
       if (current.length >= 3) {
         setAlertDialog({ isOpen: true, message: "Máximo 3 horas de guardia semanales permitidas." });
         return;
       }
-      newAvailability = [...current, { dayOfWeek: day, period }];
+      newAvailability = [...current, { dayOfWeek: day, period, type: 'regular' }];
     }
 
     try {
@@ -522,7 +528,7 @@ export function AdminPanel() {
       
       const tableData = groupGuardias.map(g => {
         const absent = teachers.find(t => t.id === g.absentTeacherId)?.name || 'Desconocido';
-        const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || (g.status === 'pending' ? '---' : 'Desconocido'));
+        const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : g.substituteTeacherId === 'guardia-biblioteca' ? 'Guardia de Biblioteca' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || (g.status === 'pending' ? '---' : 'Desconocido'));
         const dateStr = format(parseISO(g.dateStr), 'dd/MM/yyyy');
         return [
           dateStr,
@@ -809,7 +815,7 @@ export function AdminPanel() {
             <tbody className="divide-y divide-slate-100">
               {guardias.slice(0, 50).map(g => {
                 const absent = teachers.find(t => t.id === g.absentTeacherId)?.name || 'Desconocido';
-                const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || (g.status === 'pending' ? 'Pendiente' : 'Desconocido'));
+                const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : g.substituteTeacherId === 'guardia-biblioteca' ? 'Guardia de Biblioteca' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || (g.status === 'pending' ? 'Pendiente' : 'Desconocido'));
                 const dateStrFormat = format(parseISO(g.dateStr), 'dd/MM/yyyy');
                 
                 return (
@@ -835,7 +841,11 @@ export function AdminPanel() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900">Listado de Docentes y Horarios de Guardia</h2>
-          <p className="text-sm text-slate-500 mt-1">Asigna las horas de guardia (máx. 3 por semana) haciendo clic en los turnos.</p>
+          <p className="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>Asigna las horas de guardia haciendo clic en los turnos (1º clic: Guardia Aula, 2º clic: Guardia Biblioteca):</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium"><span className="w-3 h-3 rounded bg-indigo-600 inline-block"></span> Guardia de Aula</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium"><span className="w-3 h-3 rounded bg-purple-600 inline-block"></span> Guardia de Biblioteca</span>
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
@@ -931,14 +941,22 @@ export function AdminPanel() {
                           <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{day.slice(0,3)}</span>
                           <div className="flex flex-wrap gap-1 max-w-[80px] justify-center">
                             {shiftPeriods.map(p => {
-                              const isActive = (teacher.availability || []).some(a => a.dayOfWeek === dIdx + 1 && a.period === p);
+                              const avail = (teacher.availability || []).find(a => Number(a.dayOfWeek) === dIdx + 1 && Number(a.period) === p);
+                              const isActive = !!avail;
+                              const isBiblio = avail?.type === 'biblioteca';
                               return (
                                 <button
                                   key={p}
                                   onClick={() => toggleAvailability(teacher, dIdx + 1, p)}
                                   disabled={teacher.active === false}
-                                  className={`w-6 h-6 rounded-md text-xs font-medium flex items-center justify-center transition-all ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'} ${teacher.active === false ? 'cursor-not-allowed grayscale' : ''}`}
-                                  title={`Turno ${p}`}
+                                  className={`w-6 h-6 rounded-md text-xs font-medium flex items-center justify-center transition-all ${
+                                    isBiblio
+                                      ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-300'
+                                      : isActive
+                                      ? 'bg-indigo-600 text-white shadow-sm'
+                                      : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                  } ${teacher.active === false ? 'cursor-not-allowed grayscale' : ''}`}
+                                  title={isBiblio ? `Turno ${p} (Guardia de Biblioteca)` : isActive ? `Turno ${p} (Guardia de Aula)` : `Turno ${p} (Sin guardia)`}
                                 >
                                   {p > 6 ? p - 6 : p}
                                 </button>
