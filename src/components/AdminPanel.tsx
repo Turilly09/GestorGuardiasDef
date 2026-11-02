@@ -445,41 +445,214 @@ export function AdminPanel() {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text('Registro Global de Guardias', 14, 15);
+    doc.text('Reporte Analítico y Registro Global de Guardias', 14, 15);
     doc.setFontSize(10);
     doc.text(`Generado el ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 22);
     
-    let currentY = 30;
+    let currentY = 28;
 
-    // --- 1. Resumen por Profesor y Turno ---
-    doc.setFontSize(14);
-    doc.text('Resumen de Guardias por Profesor', 14, currentY);
-    currentY += 8;
-    
-    const summaryData: any[] = [];
-    const allPeriods = Array.from(new Set(guardias.map(g => Number(g.period)))).sort((a: number, b: number) => a - b);
-    
-    // Only count completed guardias assigned to a real teacher
-    const coveredGuardias = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId && g.substituteTeacherId !== 'aula-libre');
-    
-    teachers.forEach(teacher => {
-      const teacherGuardias = coveredGuardias.filter(g => g.substituteTeacherId === teacher.id);
-      if (teacherGuardias.length === 0) return; // Skip teachers with no guardias
-      
-      const row = [teacher.name];
-      let total = 0;
-      allPeriods.forEach(p => {
-        const count = teacherGuardias.filter(g => Number(g.period) === p).length;
-        row.push(count > 0 ? count.toString() : '-');
-        total += count;
-      });
-      row.push(total.toString());
-      summaryData.push(row);
+    // --- 0. Métricas Globales / Resumen Ejecutivo ---
+    const totalGuardias = guardias.length;
+    const cubiertas = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId && g.substituteTeacherId !== 'aula-libre' && g.substituteTeacherId !== 'guardia-biblioteca').length;
+    const biblioteca = guardias.filter(g => g.substituteTeacherId === 'guardia-biblioteca').length;
+    const aulaLibre = guardias.filter(g => g.substituteTeacherId === 'aula-libre').length;
+    const pendientes = guardias.filter(g => g.status === 'pending').length;
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Total Ausencias', 'Cubiertas (Docente)', 'Guardia Biblioteca', 'Aula Libre', 'Pendientes']],
+      body: [[
+        totalGuardias.toString(),
+        `${cubiertas} (${totalGuardias > 0 ? Math.round((cubiertas / totalGuardias) * 100) : 0}%)`,
+        `${biblioteca} (${totalGuardias > 0 ? Math.round((biblioteca / totalGuardias) * 100) : 0}%)`,
+        `${aulaLibre} (${totalGuardias > 0 ? Math.round((aulaLibre / totalGuardias) * 100) : 0}%)`,
+        `${pendientes}`
+      ]],
+      theme: 'plain',
+      headStyles: { fillColor: [243, 244, 246], textColor: [31, 41, 55], fontStyle: 'bold' },
+      bodyStyles: { fontSize: 10, fontStyle: 'bold' },
+      didDrawPage: (data) => {
+        if (data.cursor) currentY = data.cursor.y;
+      }
     });
 
-    summaryData.sort((a, b) => Number(b[b.length - 1]) - Number(a[a.length - 1])); // Sort by total descending
+    currentY += 10;
 
-    const summaryHeaders = ['Profesor', ...allPeriods.map(p => `Turno ${p}`), 'Total'];
+    // --- 1. Distribución por Día de la Semana y por Turno / Hora ---
+    doc.setFontSize(13);
+    doc.text('Análisis de Ausencias por Día y Turno', 14, currentY);
+    currentY += 6;
+
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dayCounts: Record<string, number> = { 'Lunes': 0, 'Martes': 0, 'Miércoles': 0, 'Jueves': 0, 'Viernes': 0 };
+    
+    const periodCounts: Record<number, number> = {};
+
+    guardias.forEach(g => {
+      try {
+        const d = parseISO(g.dateStr);
+        const dayName = dayNames[d.getDay()];
+        if (dayCounts[dayName] !== undefined) {
+          dayCounts[dayName]++;
+        }
+      } catch (e) {}
+
+      const p = Number(g.period);
+      periodCounts[p] = (periodCounts[p] || 0) + 1;
+    });
+
+    const dayRow = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'].map(d => `${dayCounts[d] || 0} ausencias`);
+    
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']],
+      body: [dayRow],
+      theme: 'grid',
+      headStyles: { fillColor: [99, 102, 241] },
+      bodyStyles: { fontSize: 9, halign: 'center' },
+      didDrawPage: (data) => {
+        if (data.cursor) currentY = data.cursor.y;
+      }
+    });
+
+    currentY += 8;
+
+    // Turnos ordenados
+    const activePeriods = (Array.from(new Set(guardias.map(g => Number(g.period)))) as number[]).sort((a: number, b: number) => a - b);
+    if (activePeriods.length > 0) {
+      const periodHeaders = activePeriods.map((p: number) => `Turno ${p}`);
+      const periodRow = activePeriods.map((p: number) => `${periodCounts[p] || 0}`);
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [periodHeaders],
+        body: [periodRow],
+        theme: 'striped',
+        headStyles: { fillColor: [79, 70, 229] },
+        bodyStyles: { fontSize: 9, halign: 'center' },
+        didDrawPage: (data) => {
+          if (data.cursor) currentY = data.cursor.y;
+        }
+      });
+      currentY += 10;
+    }
+
+    // --- 2. Distribución por Etapa Educativa y Grupos con más Guardias ---
+    if (currentY > 230) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFontSize(13);
+    doc.text('Distribución por Etapa Educativa y Grupos Afectados', 14, currentY);
+    currentY += 6;
+
+    const levelCounts: Record<string, number> = {
+      'ESO': 0,
+      'Bachillerato': 0,
+      'FP Básica': 0,
+      'FP (M/S)': 0,
+      'Sin clasificar': 0
+    };
+
+    const groupCounts: Record<string, { count: number; level: string }> = {};
+
+    guardias.forEach(g => {
+      const lvl = g.level || 'Sin clasificar';
+      if (lvl === 'FP Media' || lvl === 'FP Superior') {
+        levelCounts['FP (M/S)']++;
+      } else if (levelCounts[lvl] !== undefined) {
+        levelCounts[lvl]++;
+      } else {
+        levelCounts['Sin clasificar']++;
+      }
+
+      const grp = g.group || 'Sin especificar';
+      if (!groupCounts[grp]) {
+        groupCounts[grp] = { count: 0, level: g.level || '---' };
+      }
+      groupCounts[grp].count++;
+    });
+
+    const levelBody = [[
+      `${levelCounts['ESO']}`,
+      `${levelCounts['Bachillerato']}`,
+      `${levelCounts['FP Básica']}`,
+      `${levelCounts['FP (M/S)']}`,
+      `${levelCounts['Sin clasificar']}`
+    ]];
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['ESO', 'Bachillerato', 'FP Básica', 'FP (Media/Superior)', 'Sin Clasificar']],
+      body: levelBody,
+      theme: 'grid',
+      headStyles: { fillColor: [147, 51, 234] },
+      bodyStyles: { fontSize: 9, halign: 'center' },
+      didDrawPage: (data) => {
+        if (data.cursor) currentY = data.cursor.y;
+      }
+    });
+
+    currentY += 8;
+
+    // Top 5 Grupos Afectados
+    const sortedGroups = Object.entries(groupCounts)
+      .map(([group, data]) => ({ group, count: data.count, level: data.level }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    if (sortedGroups.length > 0) {
+      const groupBody = sortedGroups.map(g => [g.group, g.level, g.count.toString()]);
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Grupo / Clase', 'Etapa', 'Total Guardias Generadas']],
+        body: groupBody,
+        theme: 'striped',
+        headStyles: { fillColor: [124, 58, 237] },
+        bodyStyles: { fontSize: 9 },
+        didDrawPage: (data) => {
+          if (data.cursor) currentY = data.cursor.y;
+        }
+      });
+      currentY += 12;
+    }
+
+    // --- 3. Resumen por Profesor (Cubiertas vs Generadas) ---
+    if (currentY > 220) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFontSize(13);
+    doc.text('Balance y Resumen por Docente', 14, currentY);
+    currentY += 6;
+    
+    const summaryData: any[] = [];
+    
+    teachers.forEach(teacher => {
+      // Guardias asignadas como sustituto (excluyendo aula libre y biblio)
+      const realizadas = guardias.filter(g => g.status === 'assigned' && g.substituteTeacherId === teacher.id).length;
+      // Guardias generadas por su ausencia
+      const generadas = guardias.filter(g => g.absentTeacherId === teacher.id).length;
+
+      if (realizadas === 0 && generadas === 0) return; // Omitir docentes sin actividad
+      
+      const balance = realizadas - generadas;
+      const balanceStr = balance > 0 ? `+${balance}` : `${balance}`;
+
+      summaryData.push([
+        teacher.name,
+        realizadas.toString(),
+        generadas.toString(),
+        balanceStr
+      ]);
+    });
+
+    // Ordenar por guardias generadas (ausencias) descendente para identificar mayor volumen
+    summaryData.sort((a, b) => Number(b[2]) - Number(a[2]));
+
+    const summaryHeaders = ['Docente', 'Guardias Realizadas', 'Ausencias Generadas', 'Balance Neto'];
     
     if (summaryData.length > 0) {
       autoTable(doc, {
@@ -492,14 +665,14 @@ export function AdminPanel() {
           if (data.cursor) currentY = data.cursor.y;
         }
       });
-      currentY += 15;
+      currentY += 12;
     } else {
       doc.setFontSize(10);
-      doc.text('No hay guardias cubiertas registradas.', 14, currentY);
-      currentY += 15;
+      doc.text('No hay registro de actividad de docentes.', 14, currentY);
+      currentY += 12;
     }
 
-    // --- 2. Detalles por Mes ---
+    // --- 4. Detalles por Mes ---
     const guardiasByMonth: Record<string, Guardia[]> = {};
     guardias.forEach(g => {
       const monthKey = format(parseISO(g.dateStr), 'MMMM yyyy', { locale: es });
@@ -515,20 +688,24 @@ export function AdminPanel() {
     });
 
     sortedMonths.forEach(month => {
-      if (currentY > 250) {
+      if (currentY > 230) {
         doc.addPage();
         currentY = 20;
       }
 
-      doc.setFontSize(14);
-      doc.text(`Detalle - ${month}`, 14, currentY);
-      currentY += 8;
+      doc.setFontSize(13);
+      doc.text(`Detalle de Ausencias y Sustituciones - ${month}`, 14, currentY);
+      currentY += 6;
 
       const groupGuardias = guardiasByMonth[month];
       
       const tableData = groupGuardias.map(g => {
         const absent = teachers.find(t => t.id === g.absentTeacherId)?.name || 'Desconocido';
-        const substitute = g.substituteTeacherId === 'aula-libre' ? 'Aula libre' : g.substituteTeacherId === 'guardia-biblioteca' ? 'Guardia de Biblioteca' : (teachers.find(t => t.id === g.substituteTeacherId)?.name || (g.status === 'pending' ? '---' : 'Desconocido'));
+        const substitute = g.substituteTeacherId === 'aula-libre' 
+          ? 'Aula libre' 
+          : g.substituteTeacherId === 'guardia-biblioteca' 
+          ? 'Guardia Biblioteca' 
+          : (teachers.find(t => t.id === g.substituteTeacherId)?.name || (g.status === 'pending' ? '---' : 'Desconocido'));
         const dateStr = format(parseISO(g.dateStr), 'dd/MM/yyyy');
         return [
           dateStr,
@@ -549,7 +726,7 @@ export function AdminPanel() {
           if (data.cursor) currentY = data.cursor.y;
         }
       });
-      currentY += 15;
+      currentY += 12;
     });
 
     doc.save(`reporte_global_guardias_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
